@@ -7,6 +7,9 @@ module.exports = {
             './apps/indexer/templates/indexer/*.html',
             './apps/indexer/templates/indexer/bits/*.html',
 	    './apps/voting/templates/voting/*.html',
+            './apps/forum/templates/forum/**/*.html',
+            './apps/forum/forms.py',
+            './apps/forum/templatetags/forum_tags.py',
             './apps/gcd/markdown_extension.py',],
   theme: {
   extend: {

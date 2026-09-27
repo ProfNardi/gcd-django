@@ -1,0 +1,87 @@
+{% extends "forum/base.html" %}
+{% load forum_tags %}
+{% block title %}Community · Grand Comics Database{% endblock %}
+{% block view_body %}
+<div class="flex flex-col gap-6 lg:flex-row lg:gap-10">
+  {% include "forum/_sidebar.html" %}
+  <main class="min-w-0 flex-1">
+    {% if selected_category %}
+    <nav aria-label="Breadcrumb" class="mb-4 flex flex-wrap gap-2 text-xs text-slate-500">
+      <a href="{% url 'forum:index' %}?view=groups">Groups</a>
+      {% for ancestor in selected_category.ancestors %}<span>/</span><a href="{{ ancestor.get_absolute_url }}">{{ ancestor.name }}</a>{% endfor %}
+      <span>/</span><span aria-current="page">{{ selected_category.name }}</span>
+    </nav>
+    {% endif %}
+    <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-semibold tracking-tight text-slate-900">{% if directory %}Groups{% elif search_query %}Search results{% elif selected_category %}{{ selected_category.name }}{% elif active_feed == 'mine' %}Your discussions{% else %}Discussions{% endif %}</h1>
+        {% if search_query %}<p class="mt-2 text-sm text-slate-500">“{{ search_query }}”</p>{% elif selected_category.description %}<p class="mt-2 text-sm text-slate-500">{{ selected_category.description }}</p>{% endif %}
+      </div>
+      {% if categories %}<a href="{% url 'forum:discussion-create' %}{% if active_category %}?category={{ active_category }}{% endif %}" class="inline-flex shrink-0 items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white visited:text-white shadow-sm hover:bg-indigo-700 hover:no-underline focus:ring-2 focus:ring-indigo-400"><span aria-hidden="true" class="text-lg">+</span> New discussion</a>{% endif %}
+    </div>
+    {% if selected_category.entity_model %}
+    <a href="{% url 'forum:group-link' selected_category.slug %}" class="mb-5 inline-block rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-indigo-700">+ GCD ID</a>
+    {% endif %}
+    {% if selected_category.gcd_url %}
+    <a href="{{ selected_category.gcd_url }}" class="mb-5 inline-block text-sm font-medium text-indigo-700">{{ selected_category.content_object }} · GCD #{{ selected_category.object_id }} →</a>
+    {% endif %}
+    {% if selected_category.tree_children %}
+    <div class="mb-6 rounded-lg border border-slate-200 bg-white">{% include "forum/_group_tree.html" with groups=selected_category.tree_children %}</div>
+    {% endif %}
+    {% if directory %}
+      {% include "forum/_groups.html" %}
+    {% else %}
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200">
+        <nav aria-label="Discussion feed" class="flex gap-1 text-sm font-semibold">
+          <a href="{% querystring feed='latest' page=None %}" class="border-b-2 px-3 pb-3 pt-2 hover:bg-slate-100 hover:no-underline {% if active_feed == 'latest' %}border-indigo-600 text-indigo-700 visited:text-indigo-700{% else %}border-transparent text-slate-500 visited:text-slate-500{% endif %}">Latest</a>
+          <a href="{% querystring feed='unanswered' page=None %}" class="border-b-2 px-3 pb-3 pt-2 hover:bg-slate-100 hover:no-underline {% if active_feed == 'unanswered' %}border-indigo-600 text-indigo-700 visited:text-indigo-700{% else %}border-transparent text-slate-500 visited:text-slate-500{% endif %}">Unanswered</a>
+        </nav>
+        <span class="pb-3 text-xs tabular-nums text-slate-500">{{ paginator.count }} discussion{{ paginator.count|pluralize }}</span>
+      </div>
+      <div class="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        {% for discussion in discussions %}
+          <article class="border-b border-slate-100 p-5 last:border-0 hover:bg-slate-50 sm:p-6">
+            <div class="flex gap-4">
+              <span aria-hidden="true" class="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-sm font-bold text-indigo-700 sm:flex">{{ discussion.author.username|first|upper }}</span>
+              <div class="min-w-0 flex-1">
+                <div class="mb-2 flex flex-wrap items-center gap-2 text-xs">
+                  <a href="{{ discussion.category.get_absolute_url }}" class="font-semibold text-indigo-600 visited:text-indigo-600"># {{ discussion.category.name }}</a>
+                  {% if discussion.is_pinned %}<span class="rounded bg-amber-50 px-2 py-0.5 font-medium text-amber-800">Pinned</span>{% endif %}
+                  {% if discussion.is_locked %}<span class="rounded bg-slate-100 px-2 py-0.5 text-slate-600">Closed</span>{% endif %}
+                  {% if discussion.status == 'resolved' %}<span class="rounded bg-emerald-50 px-2 py-0.5 text-emerald-700">Resolved</span>{% endif %}
+                </div>
+                <h2 class="text-base font-semibold leading-6 sm:text-lg"><a href="{{ discussion.get_absolute_url }}" class="break-words text-slate-900 visited:text-slate-700 hover:text-indigo-700">{{ discussion.title }}</a></h2>
+                {% if discussion.content_object %}<p class="mt-2 truncate text-xs text-emerald-700">↗ GCD record · {{ discussion.content_object }}</p>{% endif %}
+                <div class="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
+                  <span class="font-medium text-slate-600">{{ discussion.author.username }}</span><span aria-hidden="true">·</span><time datetime="{{ discussion.created_at|date:'c' }}">{{ discussion.created_at|date:"M j" }}</time>
+                  {% for tag in discussion.tags.all %}<span class="rounded px-1.5 py-0.5 {{ tag.color_code|tag_classes }}">{{ tag.name }}</span>{% endfor %}
+                </div>
+              </div>
+              <div class="flex shrink-0 flex-col items-end justify-between gap-4 text-xs text-slate-400">
+                <time datetime="{{ discussion.last_activity|default:discussion.created_at|date:'c' }}" title="Last activity">{{ discussion.last_activity|default:discussion.created_at|timesince }} ago</time>
+                <span class="flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-slate-600"><svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M20 11a8 8 0 0 1-8 8H4l-2 3V11a9 9 0 0 1 18 0Z"/></svg>{{ discussion.post_count|reply_count }}<span class="sr-only">replies</span></span>
+              </div>
+            </div>
+          </article>
+        {% empty %}
+          <div class="px-6 py-16 text-center">
+            <h2 class="text-base font-semibold text-slate-900">{% if search_query %}No results{% elif not categories %}No groups yet{% elif active_feed == 'mine' %}No discussions yet{% elif active_feed == 'unanswered' %}No unanswered discussions{% else %}No discussions yet{% endif %}</h2>
+            {% if search_query %}
+            <a href="{% url 'forum:index' %}" class="mt-4 inline-block text-sm font-medium text-indigo-700">Clear search</a>
+            {% elif not categories and perms.forum.add_category %}
+            <a href="{% url 'admin:forum_category_add' %}" class="mt-4 inline-block rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Create group</a>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+      {% if is_paginated %}
+        <nav aria-label="Pagination" class="mt-5 flex items-center justify-between text-sm">
+          <span class="text-slate-500">Page {{ page_obj.number }} of {{ paginator.num_pages }}</span><div class="flex gap-3">
+          {% if page_obj.has_previous %}<a href="{% querystring page=page_obj.previous_page_number %}" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-700 visited:text-slate-700">Previous</a>{% endif %}
+          {% if page_obj.has_next %}<a href="{% querystring page=page_obj.next_page_number %}" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-700 visited:text-slate-700">Next</a>{% endif %}</div>
+        </nav>
+      {% endif %}
+    {% endif %}
+  </main>
+</div>
+{% endblock %}

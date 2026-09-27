@@ -1,0 +1,29 @@
+{% extends "forum/base.html" %}
+
+{% block title %}{% if object %}Edit{% else %}New discussion{% endif %} — GCD Forum{% endblock %}
+
+{% block view_body %}
+<main class="mx-auto w-full max-w-3xl py-8">
+  <a href="{% url 'forum:index' %}" class="mb-5 inline-block text-sm text-slate-500 visited:text-slate-500">← Back to discussions</a>
+  <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
+    <h1 class="text-2xl font-bold text-slate-950">{% if object %}Edit content{% else %}Start a discussion{% endif %}</h1>
+    {% if not object %}<p class="mt-2 text-sm leading-6 text-slate-500">Choose a group, give your topic a clear title, and add the details others need to help.</p>{% endif %}
+    <form method="post" class="mt-6 space-y-5">
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="rounded-lg bg-red-50 p-3 text-sm text-red-800">{{ form.non_field_errors }}</div>{% endif %}
+      {% for field in form %}
+        <div>
+          <label for="{{ field.id_for_label }}" class="mb-1 block text-sm font-semibold text-slate-800">{{ field.label }}</label>
+          {{ field }}
+          {% if field.help_text %}<p class="mt-1 text-xs text-slate-500">{{ field.help_text }}</p>{% endif %}
+          {% if field.errors %}<div class="mt-1 text-sm text-red-700">{{ field.errors }}</div>{% endif %}
+        </div>
+      {% endfor %}
+      <div class="flex justify-end gap-3 border-t border-slate-200 pt-5">
+        <a href="{% if object.get_absolute_url %}{{ object.get_absolute_url }}{% else %}{% url 'forum:index' %}{% endif %}" class="rounded-lg px-4 py-2 font-semibold text-slate-700 hover:bg-slate-100">Cancel</a>
+        <button class="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-700">{% if object %}Save changes{% else %}Publish discussion{% endif %}</button>
+      </div>
+    </form>
+  </div>
+</main>
+{% endblock %}

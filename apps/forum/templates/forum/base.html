@@ -1,0 +1,37 @@
+{% extends "gcd/tw_base.html" %}
+{% load static %}
+{% block head %}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}GCD Community{% endblock %}</title>
+  <link rel="shortcut icon" href="{% static 'img/favicon.ico' %}">
+  {# Independent compiled asset: no stale global CSS or compressor cache. #}
+  <link rel="stylesheet" href="{% static 'css/forum.css' %}?v=20260927-3">
+  <script src="{% static 'js/htmx.min.js' %}" defer></script>
+{% endblock %}
+{% block body %}
+<div class="min-h-screen bg-slate-50 font-sans text-slate-900 antialiased selection:bg-indigo-100">
+  <a href="#community-content" class="sr-only focus:not-sr-only focus:block focus:bg-white focus:p-4">Skip to content</a>
+  <header class="border-b border-slate-200 bg-white">
+    <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-4 px-4 py-4 sm:px-6 lg:px-8">
+      <a href="{% url 'forum:index' %}" class="flex items-center gap-3 text-slate-900 visited:text-slate-900 hover:no-underline">
+        <img src="{% static 'img/gcd_logo.png' %}" alt="Grand Comics Database" width="134" height="91" class="h-10 w-auto shrink-0">
+        <span class="text-lg font-semibold tracking-tight">Forum</span>
+      </a>
+      <form method="get" action="{% url 'forum:index' %}" role="search" class="order-last flex w-full items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-100 md:order-none md:ml-auto md:max-w-sm">
+        <svg aria-hidden="true" class="h-5 w-5 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg>
+        <label for="community-search" class="sr-only">Search discussions</label>
+        <input id="community-search" name="q" value="{{ search_query }}" maxlength="200" placeholder="Search discussions..." class="min-w-0 flex-1 border-0 bg-transparent py-2.5 text-sm focus:ring-0">
+        <button class="rounded px-2 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-50">Search</button>
+      </form>
+      <a href="/" class="ml-auto text-sm font-medium text-slate-600 hover:text-indigo-700 md:ml-0">Database</a>
+      {% if user.is_authenticated %}<a href="{% url 'default_profile' %}" title="{{ user.username }}" aria-label="Your GCD account" class="flex h-9 w-9 items-center justify-center rounded-full bg-amber-100 font-bold text-amber-900">{{ user.username|first|upper }}</a><form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="text-xs text-slate-500">Sign out</button></form>{% else %}<a href="{% url 'login' %}?next={{ request.path|urlencode }}" class="text-sm font-semibold text-indigo-700 visited:text-indigo-700">Sign in</a>{% endif %}
+    </div>
+  </header>
+  <div id="community-content" class="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
+    {% include "forum/_messages.html" %}
+    {% block view_body %}{% endblock %}
+  </div>
+</div>
+{% endblock %}
+{% block fine_print %}<footer class="border-t border-slate-200 bg-white px-4 py-4 text-center text-xs text-slate-500"><a href="/" class="hover:text-slate-900">Grand Comics Database</a></footer>{% endblock %}

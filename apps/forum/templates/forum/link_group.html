@@ -1,0 +1,14 @@
+{% extends "forum/base.html" %}
+{% block view_body %}
+<main class="mx-auto max-w-md rounded-lg border border-slate-200 bg-white p-6">
+  <a href="{{ parent.get_absolute_url }}" class="text-sm text-indigo-700">← {{ parent.name }}</a>
+  <h1 class="mt-4 text-xl font-semibold">Open a GCD record group</h1>
+  <form method="post" class="mt-5 space-y-4">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    <label for="{{ form.object_id.id_for_label }}" class="block text-sm font-medium">{{ parent.get_entity_model_display }} · GCD ID</label>
+    {{ form.object_id }}{{ form.object_id.errors }}
+    <button class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">Open group</button>
+  </form>
+</main>
+{% endblock %}

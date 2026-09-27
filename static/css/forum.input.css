@@ -1,0 +1,4 @@
+/* Build: tailwindcss -c tailwind.forum.config.js -i static/css/forum.input.css -o static/css/forum.css --minify */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

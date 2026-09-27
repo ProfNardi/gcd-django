@@ -1,0 +1,7 @@
+<form method="post" action="{% url 'forum:post-vote' post.pk %}" hx-post="{% url 'forum:post-vote' post.pk %}" hx-swap="outerHTML">
+  {% csrf_token %}
+  <button type="submit" class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-semibold {% if post.user_has_voted %}bg-indigo-100 text-indigo-800{% else %}bg-slate-100 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700{% endif %}" aria-pressed="{% if post.user_has_voted %}true{% else %}false{% endif %}">
+    <span aria-hidden="true">▲</span> {{ post.vote_count }}
+    <span class="sr-only">upvotes</span>
+  </button>
+</form>

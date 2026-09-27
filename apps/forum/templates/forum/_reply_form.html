@@ -1,0 +1,20 @@
+<section id="reply-form-container" class="mt-8 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-6">
+  <div class="flex items-center justify-between gap-3">
+    <h2 id="reply-heading" class="text-lg font-bold text-slate-900">{% if reply_form.parent.value %}Reply to post #{{ reply_form.parent.value }}{% else %}Join the conversation{% endif %}</h2>
+    <button id="cancel-reply" type="button" onclick="clearReplyTarget()" {% if not reply_form.parent.value %}hidden{% endif %} class="text-xs font-semibold text-indigo-700">Cancel reply target</button>
+  </div>
+  <form id="quick-reply-form" method="post" action="{% url 'forum:reply' discussion.slug %}"
+        hx-post="{% url 'forum:reply' discussion.slug %}" hx-target="{% if reply_form.parent.value %}#children-{{ reply_form.parent.value }}{% else %}#post-list{% endif %}" hx-swap="beforeend" class="mt-4">
+    {% csrf_token %}
+    {{ reply_form.parent }}
+    {% if reply_form.parent.errors %}<div class="mb-3 text-sm text-red-700">{{ reply_form.parent.errors }}</div>{% endif %}
+    {% if reply_form.non_field_errors %}<div class="mb-3 text-sm text-red-700">{{ reply_form.non_field_errors }}</div>{% endif %}
+    <label for="{{ reply_form.content.id_for_label }}" class="sr-only">Your reply</label>
+    {{ reply_form.content }}
+    {% if reply_form.content.errors %}<div class="mt-1 text-sm text-red-700">{{ reply_form.content.errors }}</div>{% endif %}
+    <div class="mt-3 flex items-center justify-between gap-3">
+      <p class="text-xs text-slate-500">Markdown is supported.</p>
+      <button class="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-700">Post reply</button>
+    </div>
+  </form>
+</section>

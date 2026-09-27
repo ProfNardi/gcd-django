@@ -1,0 +1,13 @@
+{% for group in groups %}
+<div class="border-b border-slate-100 px-4 py-3 last:border-0">
+  {% if group.tree_children %}
+  <details open>
+    <summary class="cursor-pointer break-words text-sm font-semibold text-slate-800">{{ group.name }}{% if group.is_restricted %} · Private{% endif %}</summary>
+    <a href="{{ group.get_absolute_url }}" class="my-2 inline-block text-xs font-medium text-indigo-700">Open group →</a>
+    <div class="ml-2 border-l border-slate-200">{% include "forum/_group_tree.html" with groups=group.tree_children %}</div>
+  </details>
+  {% else %}
+  <a href="{{ group.get_absolute_url }}" class="flex justify-between gap-3 text-sm font-medium text-slate-800 hover:text-indigo-700"><span class="min-w-0 break-words">{{ group.name }}{% if group.is_restricted %} · Private{% endif %}</span><span class="text-xs text-slate-500">{{ group.topic_count }}</span></a>
+  {% endif %}
+</div>
+{% endfor %}
