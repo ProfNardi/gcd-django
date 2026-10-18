@@ -8,24 +8,69 @@ Obiettivo: gli indicizzatori tracciano il personaggio sulle copertine e segnano 
 candidate a immagine ufficiale; gli indicizzatori votano 1-2-3 tra le candidate; la scheda
 mostra al massimo le 3 scelte.
 
-Decisioni dell'utente:
-- prima si inseriscono i personaggi nella sequenza di copertina, poi li si seleziona sulla
-  copertina (integrita' dei riferimenti); l'immagine si ricava dalla copertina, nessun file nuovo;
-- solo rettangolo, approvazione normale;
-- la grandezza non basta a dire se un'immagine e' significativa (Superman ferito, anziano,
-  disegnatori diversi): l'indicizzatore spunta "candidate for official image" quando traccia
-  la zona; le zone non spuntate restano salvate (utili per l'evoluzione nel tempo) ma non
-  entrano nel voto;
-- votano gli indicizzatori (`indexer.can_reserve`), classifica 1-2-3 (3, 2, 1 punti),
-  voti separati per scheda (generale e per universo);
-- senza voti la scheda resta com'e' oggi;
-- scansione sostituita: zona "da ricontrollare", esclusa da candidate e scheda finche' non
-  viene risalvata sulla nuova scansione; i voti restano;
-- copertine avvolgenti: zone solo sul fronte;
-- prova con almeno 10 scansioni dell'utente dello stesso personaggio da fonti diverse;
-- modifiche minime, direttive del manutentore, wiki come legge.
-- In futuro i topic (altro progetto: le keyword diventano topic) potranno descrivere la scena
-  raffigurata; questa PR non ne dipende.
+## Decisioni e motivi
+1. **Prima i personaggi nella sequenza di copertina, poi le zone sulla copertina.**
+   Motivo: la zona punta all'apparizione del personaggio; al contrario la zona non saprebbe
+   l'universo, non seguirebbe le cancellazioni e nessun blocco la proteggerebbe durante le
+   modifiche (zone orfane). Creare l'apparizione in automatico dalla zona rifarebbe il modulo
+   dei personaggi (identita' civili, gruppi, doppioni): non minimo.
+2. **L'immagine si ricava dalla copertina esistente, nessun file nuovo.**
+   Motivo: la scansione e' gia' caricata e approvata; una copia occuperebbe spazio e resterebbe
+   indietro quando la scansione viene sostituita.
+3. **Coordinate in parti su 10000 della larghezza del fronte, su entrambi gli assi.**
+   Motivo: reggono qualsiasi definizione; il ritaglio conserva le vere proporzioni senza
+   conoscere l'altezza dell'immagine; quattro interi come `Cover.front_*`, ordinabili dal
+   database. Scartata la stringa compatta (`rXXXXYYYY...`): convenzioni miste per ovale e
+   rettangolo, nessun separatore, 10000 non entra in quattro cifre.
+4. **Solo rettangolo.**
+   Motivo: il ritaglio mostrato e' comunque rettangolare; un ovale taglia gli angoli (testa,
+   mani, mantello); se mai servisse, un ovale si ricava dagli stessi quattro numeri.
+5. **Approvazione normale delle zone.**
+   Motivo: ogni dato del catalogo GCD passa per l'approvazione, e la zona e' un dato sulla
+   copertina.
+6. **Candidate scelte dall'indicizzatore con la casella "candidate for official image", non
+   dalla grandezza.**
+   Motivo: scaricando le copertine di prova l'utente ha trovato copertine in cui il soggetto e'
+   grande ma e' ferito, anziano, in una versione variante, o disegnato da autori che danno
+   risultati di qualita' molto diversa: la grandezza misura solo quanto dettaglio si vede, non
+   se l'immagine rappresenta il personaggio. Solo una persona puo' giudicarlo. Le zone non
+   spuntate restano salvate, perche' servono per l'evoluzione nel tempo.
+7. **Votano gli indicizzatori (`indexer.can_reserve`).**
+   Motivo: chi traccia le zone conosce personaggi e regole; e' lo stesso permesso che serve
+   per prenotare un numero.
+8. **Classifica 1-2-3 (3, 2, 1 punti).**
+   Motivo (scelta dell'utente): distingue la prima scelta dalle altre invece di contare solo
+   si'/no.
+9. **Voti separati per scheda (generale e per universo).**
+   Motivo: la scheda di una versione (es. Superman di Terra-2) deve mostrare immagini di quella
+   versione, non di quella generale.
+10. **Senza voti la scheda resta com'e' oggi (copertina a caso).**
+    Motivo (scelta dell'utente): la scheda cambia solo quando delle persone hanno scelto;
+    nessun giudizio automatico.
+11. **Scansione sostituita: zona "da ricontrollare", esclusa finche' risalvata, voti tenuti.**
+    Motivo: le proporzioni reggono una definizione piu' alta ma non un taglio diverso (bordi,
+    margini), quindi un ritaglio non ricontrollato potrebbe mostrare mezza testa; i voti
+    restano perche' la scelta della figura vale ancora, una volta riallineato il rettangolo.
+12. **Copertine avvolgenti: zone solo sul fronte, sull'immagine w200.**
+    Motivo: la scheda mostra il fronte; la w200 contiene solo il fronte, quindi le coordinate
+    partono dal suo angolo senza conversioni.
+13. **Voti senza approvazione, in una tabella propria; l'app `voting` non si riusa.**
+    Motivo: un voto e' un'opinione, non un dato del catalogo; `voting` serve alle votazioni
+    ufficiali (ordine del giorno, scadenza, quorum, email alle liste).
+14. **Acquisitore nuovo di circa 40 righe senza librerie, non Jcrop.**
+    Motivo: Jcrop (2013) chiede jQuery; `gatefoldcover.js` lavora in pixel con un rapporto
+    fissato al caricamento, sbaglia se la finestra cambia misura e ha variabili globali non
+    dichiarate; l'utente lo considera una trappola.
+15. **Prova con almeno 10 scansioni dell'utente dello stesso personaggio da fonti diverse.**
+    Motivo: il sito di sviluppo non ha immagini di copertina (`gcd_cover` vuota,
+    `FAKE_IMAGES = True`) e non salva i caricamenti; servono scansioni vere per giudicare i
+    ritagli e la casella, compresi casi da non candidare.
+16. **Modifiche minime nello stile del manutentore; il wiki GCD come riferimento.**
+    Motivo: il manutentore ha chiesto poco JavaScript che possa mantenere, lo stile del sito e
+    PR piccole; il wiki e' la fonte delle regole.
+17. **Topic e scena raffigurata: fuori da questa PR.**
+    Motivo: in futuro i topic (altro progetto: le keyword diventano topic) potranno descrivere
+    la scena (es. ferito, anziano); questa PR non deve dipendere da un lavoro non ancora unito.
 
 ## Verdetto sull'integrita' (revisione esperta, punti chiave verificati nel codice)
 - La zona punta all'apparizione (StoryCharacter) che esiste nella stessa modifica come
