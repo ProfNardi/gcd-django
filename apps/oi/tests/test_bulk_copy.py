@@ -502,3 +502,17 @@ def test_omit_details_is_chosen_for_each_sequence(copy_context, with_cover):
     assert response.status_code == 302
     assert [(call.args[0].id, call.kwargs['omit_story_details'])
             for call in c.copier.call_args_list] == [(8, False), (7, True)]
+
+
+def test_about_comics_cannot_be_copied_to_series_without_them(copy_context):
+    c = copy_context
+    c.issue.series.has_about_comics = False
+    c.sources[0].type_id = STORY_TYPES['about comics']
+    request = request_for(c, {'copy_selected_cached_objects': 'story',
+                             'cached_objects': ['story_7', 'story_8']})
+    with patch('apps.oi.views.render_error',
+               return_value=HttpResponse('refused')) as error:
+        copy_cached_sequences.__wrapped__(request, c.data, 'batch')
+    error.assert_called_once()
+    c.render.assert_not_called()
+    c.copier.assert_not_called()
