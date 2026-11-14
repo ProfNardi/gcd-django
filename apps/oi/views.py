@@ -770,12 +770,15 @@ def submit(request, id):
         if changeset.imps == 0 and not \
            changeset.characterorderrevisions.exists() and not \
            _has_changed_revision(changeset):
+            edit_url = urlresolvers.reverse('edit', kwargs={'id':
+                                                            changeset.id})
             return oi_render(
               request, 'indexer/error.html',
               {'error_text': mark_safe('A submission needs to consists of at '
                                        'least one change to the data or have '
                                        'a comment. <a href="%s">Go back.</a>'
-                                       % request.META['HTTP_REFERER'])
+                                       % request.META.get('HTTP_REFERER',
+                                                          edit_url))
                })
 
     changeset.submit(notes=comment_text)
@@ -2435,7 +2438,7 @@ def add_brand_use(request, brand_id, publisher_id=None):
                 kwargs={'brand_id': brand_id}))
 
         form = get_brand_use_revision_form(user=request.user)(request.POST)
-        if not form.is_valid:
+        if not form.is_valid():
             return _display_add_brand_use_form(request, form, brand, publisher)
 
         changeset = Changeset(indexer=request.user, state=states.OPEN,
@@ -2594,6 +2597,20 @@ def init_added_variant(form_class, initial, issue, revision=False):
     return form
 
 
+def _save_add_form_comment(request, form, revision, changeset):
+    """
+    Store the comment of an add form, for adds which do not go directly to
+    the submission with the comment.
+    """
+    comments = form.cleaned_data.get('comments')
+    if comments:
+        revision.comments.create(commenter=request.user,
+                                 changeset=changeset,
+                                 text=comments,
+                                 old_state=changeset.state,
+                                 new_state=changeset.state)
+
+
 @permission_required('indexer.can_reserve')
 def add_issue(request, series_id, sort_after=None, variant_of=None,
               variant_cover=None, edit_with_base=False):
@@ -2718,6 +2735,7 @@ def add_issue(request, series_id, sort_after=None, variant_of=None,
     revision.process_extra_forms(extra_forms)
 
     if variant_of:
+        _save_add_form_comment(request, form, revision, changeset)
         return edit(request, changeset.id)
     if 'copy_from_predecessor' in request.POST and revision.after:
         issue = revision.after
@@ -2818,6 +2836,7 @@ def add_variant_to_issue_revision(request, changeset_id, issue_revision_id):
                    'code_number_formset': code_number_formset,
                    'external_link_formset': external_link_formset}
     variant_revision.process_extra_forms(extra_forms)
+    _save_add_form_comment(request, form, variant_revision, changeset)
     changeset.change_type = CTYPES['variant_add']
     changeset.save()
 
@@ -2883,6 +2902,7 @@ def add_variant_issuerevision(changeset, revision, variant_of, form,
                    'code_number_formset': code_number_formset,
                    'external_link_formset': external_link_formset}
     issuerevision.process_extra_forms(extra_forms)
+    _save_add_form_comment(request, form, issuerevision, changeset)
 
     return True
 
@@ -4551,6 +4571,10 @@ def reserve_reprint(request, changeset_id, reprint_id):
         return _cant_get(request)
     display_obj = get_object_or_404(DISPLAY_CLASSES['reprint'],
                                     id=reprint_id)
+    if which_side == 'matching_sequence':
+        refusal = _reprint_sequence_refusal(display_obj, changeset)
+        if refusal:
+            return render_error(request, refusal, redirect=False)
     revision_lock = _get_revision_lock(display_obj, changeset)
     if not revision_lock:
         return render_error(
@@ -4987,6 +5011,21 @@ def _single_copy_context(request, issue_revision, story, position,
     }
 
 
+def _about_comics_copy_error(request, stories, issue_revision):
+    """
+    Sequences of type 'about comics' can only be added to series which
+    have them, which is otherwise enforced by the sequence types offered
+    in the form.
+    """
+    if not issue_revision.series.has_about_comics and any(
+      story.type_id == STORY_TYPES['about comics'] for story in stories):
+        return render_error(
+          request, 'Sequences of type "about comics" can only be copied to '
+                   'a series which has "about comics" sequences.',
+          redirect=False)
+    return None
+
+
 @transaction.atomic
 def copy_cached_sequences(request, data, select_key):
     """Preview or atomically copy selected covers and stories."""
@@ -5107,6 +5146,9 @@ def copy_cached_sequences(request, data, select_key):
     refusal = _copy_refusal(issue_revision, stories)
     if refusal:
         return render_error(request, refusal)
+    error = _about_comics_copy_error(request, stories, issue_revision)
+    if error:
+        return error
     actual_covers = [s.id for s in stories
                      if s.type_id == STORY_TYPES['cover']]
     if any(pk not in actual_covers for pk in cover_ids):
@@ -5275,6 +5317,9 @@ def copy_sequence(request, issue_revision_id, story_id=None,
         refusal = _copy_refusal(issue_revision, [story])
         if refusal:
             return render_error(request, refusal)
+        error = _about_comics_copy_error(request, [story], issue_revision)
+        if error:
+            return error
         existing = list(issue_revision.active_stories())
         placement = _copy_placement(existing, sequence_number,
                                     story.type_id == STORY_TYPES['cover'])
@@ -5324,6 +5369,37 @@ def copy_sequence(request, issue_revision_id, story_id=None,
                                             'id': story_revision.id}))
 
 
+def _matching_sequence_refusal(issue_revision, story):
+    """
+    Return why a copy of story cannot be added to issue_revision, or None.
+
+    A variant holds a single cover sequence, and only if its cover artwork
+    differs from the base issue.
+    """
+    if not issue_revision.variant_of:
+        return None
+    if issue_revision.variant_cover_status != VCS_Codes.ARTWORK_DIFFERENCE:
+        return 'A cover sequence can only be added to a variant if its ' \
+               'cover artwork is different from the base issue.'
+    if story.type_id not in (STORY_TYPES['cover'],
+                             STORY_TYPES['cover reprint (on interior page)']):
+        return 'Only a cover sequence can be added to a variant issue.'
+    if issue_revision.active_stories().exists():
+        return 'You cannot add more than one cover sequence to a variant ' \
+               'issue.'
+    return None
+
+
+def _reprint_sequence_refusal(reprint, changeset):
+    """
+    Return why the sequence for a link cannot be added to changeset, or None.
+
+    The link is either a reprint or a reprint revision.
+    """
+    return _matching_sequence_refusal(changeset.issuerevisions.get(),
+                                      reprint.origin or reprint.target)
+
+
 @permission_required('indexer.can_reserve')
 def create_matching_sequence(request, reprint_revision_id, story_id, issue_id,
                              edit=False, qualifier=False):
@@ -5332,13 +5408,16 @@ def create_matching_sequence(request, reprint_revision_id, story_id, issue_id,
     reprint_revision = get_object_or_404(ReprintRevision,
                                          id=reprint_revision_id)
     changeset = reprint_revision.changeset
-    changeset_issue = changeset.issuerevisions.get()
+    changeset_issue = changeset.issuerevisions.select_for_update().get()
     if request.user != changeset.indexer:
         return render_error(
           request,
           'Only the reservation holder may access this page.')
     if issue != changeset_issue.issue:
         return _cant_get(request)
+    refusal = _matching_sequence_refusal(changeset_issue, story)
+    if refusal:
+        return render_error(request, refusal, redirect=False)
     if request.method != 'POST' and not edit:
         if story == reprint_revision.origin:
             direction = 'from'
@@ -5362,6 +5441,9 @@ def create_matching_sequence(request, reprint_revision_id, story_id, issue_id,
             copy_characters = True
         else:
             copy_characters = request.POST.get('copy_characters', False)
+        error = _about_comics_copy_error(request, [story], changeset_issue)
+        if error:
+            return error
         story_revision = StoryRevision.copied_revision(
           story, changeset, issue_revision=changeset_issue,
           copy_credit_info=copy_credit_info, copy_characters=copy_characters)
@@ -5552,6 +5634,12 @@ def save_reprint(request, reprint_revision_id, changeset_id,
     except ValueError as error:
         return render_error(request, str(error), redirect=False)
 
+    if 'matching_sequence' in request.POST or \
+       'matching_sequence_with_qualifiers' in request.POST:
+        refusal = _reprint_sequence_refusal(revision, changeset)
+        if refusal:
+            return render_error(request, refusal, redirect=False)
+
     if story_revision:
         story_revision.save()
 
@@ -5727,6 +5815,8 @@ def move_series(request, series_revision_id, publisher_id):
                     for brand in issue_revision.brand_emblem.all():
                         new_brand = publisher.active_brand_emblems()\
                                              .filter(name=brand.name)
+                        if brand in new_brand:
+                            continue
                         if new_brand.count() == 1:
                             issue_revision.brand_emblem.add(new_brand[0])
                         issue_revision.brand_emblem.remove(brand)
@@ -5850,6 +5940,8 @@ def move_issue(request, issue_revision_id, series_id):
                 for brand in issue_revision.brand_emblem.all():
                     new_brand = series.publisher.active_brand_emblems()\
                                                 .filter(name=brand.name)
+                    if brand in new_brand:
+                        continue
                     if new_brand.count() == 1:
                         issue_revision.brand_emblem.add(new_brand[0])
                     issue_revision.brand_emblem.remove(brand)
@@ -7052,8 +7144,8 @@ def compare(request, id):
     elif model_name == 'issue':
         moved_issues = _moved_issues(revision)
         if changeset.change_type == CTYPES['issue_bulk'] or \
-          changeset.change_type == CTYPES['issue_add'] and \
-          changeset.issuerevisions.count() > 1:
+           changeset.change_type == CTYPES['issue_add'] and \
+           changeset.issuerevisions.count() > 1:
             field_list.remove('number')
             field_list.remove('notes')
             field_list.remove('year_on_sale')

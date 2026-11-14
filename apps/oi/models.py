@@ -948,6 +948,12 @@ class Changeset(models.Model):
                 # coverrevisions can have issuerevisions and storyrevisions
                 # for variant uploads, but one shouldn't get imps for them
                 revisions = self.coverrevisions.all()
+            elif self.change_type == CTYPES['series']:
+                # the issuerevisions of a series change come from moving the
+                # series, which re-sets the brands and indicia publishers of
+                # the issues automatically, one shouldn't get imps for them
+                revisions = (revision for revision in self.revisions
+                             if not isinstance(revision, IssueRevision))
             else:
                 revisions = self.revisions
 
@@ -3599,7 +3605,6 @@ class SeriesRevision(Revision):
             # We assume that a non-four-digit year is a typo of some
             # sort, and do not propagate it.  The approval process
             # should catch that sort of thing.
-            # TODO: Consider a validator on year_began?
             if len(str(self.year_began)) == 4:
                 issue_revision.key_date = '%d-00-00' % self.year_began
             issue_revision.save()
@@ -4533,7 +4538,9 @@ class IssueRevision(Revision):
                 code_number_revision.save()
 
         if delete:
-            for cover in self.issue.active_covers():
+            # active_covers() gives the covers of the base issue for a
+            # variant with the same image, and those stay.
+            for cover in self.issue._active_covers():
                 # cover can be reserved, so this can fail
                 # TODO check if transaction rollback works
                 cover_lock = _get_revision_lock(cover,
@@ -4613,7 +4620,7 @@ class IssueRevision(Revision):
                     end_note = note.find(')')
                     remainder_note = note[end_note+1:].strip()
                     note = note[:end_note].strip()
-                    save_credit = credit
+                    with_note = credit
                     credit = credit[:credit.find('(')-1]
                     if note in ['credited', 'kreditert']:
                         is_credited = True
@@ -4626,7 +4633,7 @@ class IssueRevision(Revision):
                             else:
                                 note = remainder_note
                     else:
-                        note = save_credit[save_credit.find('('):].strip()
+                        note = with_note[with_note.find('('):].strip()
                 else:
                     note = ''
                 if credit.find('[') > 1:
@@ -6622,7 +6629,7 @@ class StoryRevision(Revision):
                         end_note = note.find(')')
                         remainder_note = note[end_note+1:].strip()
                         note = note[:end_note].strip()
-                        save_credit = credit
+                        with_note = credit
                         credit = credit[:credit.find('(')-1].strip()
                         if credit[-1] == '?':
                             credit = credit[:-1].strip()
@@ -6659,7 +6666,7 @@ class StoryRevision(Revision):
                             is_signed = True
                             note = 'painting'
                         else:
-                            note = save_credit[save_credit.find('('):].strip()
+                            note = with_note[with_note.find('('):].strip()
                     else:
                         note = ''
                     if credit.find('[') > 1:
@@ -6848,6 +6855,8 @@ class StoryRevision(Revision):
 
     @property
     def my_issue_revision(self):
+        # For a variant-add (inside an existing issue changeset or on its own)
+        # we get the issue revision of the variant via None for self.issue.
         if not hasattr(self, '_saved_my_issue_revision'):
             self._saved_my_issue_revision = \
                 self.changeset.issuerevisions.filter(issue=self.issue)[0]
@@ -7076,8 +7085,16 @@ class StoryRevision(Revision):
                         .exclude(deleted=True)
                 next_revisions_ids = []
             old_revisions_ids = old_revisions.values_list('id', flat=True)
+            # a sequence moved into an existing issue in this changeset is
+            # linked by target_revision only (target=None), see
+            # move_story_revision
+            moved_revisions = self.target_reprint_revisions.active_set()\
+                                  .filter(changeset__id=self.changeset_id)
+            if preview:
+                moved_revisions = moved_revisions.exclude(deleted=True)
             revisions_ids = set(new_revisions_ids) | set(old_revisions_ids) | \
-                set(next_revisions_ids)
+                set(next_revisions_ids) | \
+                set(moved_revisions.values_list('id', flat=True))
             return ReprintRevision.objects.filter(id__in=revisions_ids)
         else:
             return from_reprints
@@ -7144,8 +7161,16 @@ class StoryRevision(Revision):
                         .exclude(deleted=True)
                 next_revisions_ids = []
             old_revisions_ids = old_revisions.values_list('id', flat=True)
+            # a sequence moved into an existing issue in this changeset is
+            # linked by origin_revision only (origin=None), see
+            # move_story_revision
+            moved_revisions = self.origin_reprint_revisions.active_set()\
+                                  .filter(changeset__id=self.changeset_id)
+            if preview:
+                moved_revisions = moved_revisions.exclude(deleted=True)
             revisions_ids = set(new_revisions_ids) | set(old_revisions_ids) | \
-                set(next_revisions_ids)
+                set(next_revisions_ids) | \
+                set(moved_revisions.values_list('id', flat=True))
             return ReprintRevision.objects.filter(id__in=revisions_ids)
         else:
             return to_reprints
