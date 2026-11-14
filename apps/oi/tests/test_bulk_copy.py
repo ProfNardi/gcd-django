@@ -525,6 +525,13 @@ def not_a_cover(c):
     c.sources[0].type = SimpleNamespace(name='comic story')
 
 
+def cover_reprint(c):
+    """Make the source a cover reprinted on an interior page."""
+    name = 'cover reprint (on interior page)'
+    c.sources[0].type_id = STORY_TYPES[name]
+    c.sources[0].type = SimpleNamespace(name=name)
+
+
 def several_covers(c):
     """Copy two covers at once."""
     c.sources[:] = [SimpleNamespace(id=pk, type_id=STORY_TYPES['cover'])
@@ -540,6 +547,15 @@ def bulk_copy(c):
         'cached_objects': ['story_%d' % pk for pk in stories],
         'selected_covers': ['cover_%d' % pk for pk in covers]})
     request.session.update(cached_stories=stories, cached_covers=covers)
+    return copy_cached_sequences.__wrapped__(request, c.data, 'batch')
+
+
+def ticked_cover_copy(c):
+    """Tick the source in the Covers group and post Copy Selected."""
+    pk = c.sources[0].id
+    request = request_for(c, {'copy_selected_cached_objects': 'story',
+                              'selected_covers': ['cover_%d' % pk]})
+    request.session.update(cached_stories=[], cached_covers=[pk])
     return copy_cached_sequences.__wrapped__(request, c.data, 'batch')
 
 
@@ -632,6 +648,44 @@ def test_variant_copies_one_cover_once_confirmed(variant_copy, destination):
     assert single_copy(c, cover_plan=plan).status_code == 302
     c.error.assert_not_called()
     c.copier.assert_called_once()
+
+
+@pytest.mark.parametrize('destination', [new_variant, approved_variant])
+def test_variant_accepts_a_cover_reprint_for_confirmation(variant_copy,
+                                                          destination):
+    """A cover reprint for a suitable variant reaches the confirmation."""
+    c = variant_copy
+    destination(c)
+    cover_reprint(c)
+    assert selected_copy(c).status_code == 200
+    c.error.assert_not_called()
+    c.render.assert_called_once()
+
+
+@pytest.mark.parametrize('destination', [new_variant, approved_variant])
+def test_variant_copies_a_cover_reprint_at_once(variant_copy, destination):
+    """A cover reprint has no placement to review, so it is copied at once."""
+    c = variant_copy
+    destination(c)
+    cover_reprint(c)
+    assert single_copy(c).status_code == 302
+    c.error.assert_not_called()
+    c.copier.assert_called_once()
+
+
+@pytest.mark.parametrize('destination', [new_variant, approved_variant])
+def test_copy_selected_takes_no_cover_reprint(variant_copy, destination):
+    """A cover reprint ticked as a cover is turned down and not copied."""
+    c = variant_copy
+    destination(c)
+    cover_reprint(c)
+    response = ticked_cover_copy(c)
+    assert response.status_code == 400
+    assert response.content == b'A selected cover is no longer a cover.'
+    c.error.assert_not_called()
+    c.render.assert_not_called()
+    c.copier.assert_not_called()
+    c.receipts.delete.assert_not_called()
 
 
 @pytest.mark.parametrize('count', [1, 2])

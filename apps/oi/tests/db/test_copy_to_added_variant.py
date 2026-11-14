@@ -30,6 +30,15 @@ def cover(any_added_story):
     return any_added_story
 
 
+@pytest.fixture
+def cover_reprint(any_added_story):
+    """Return an approved cover reprinted on an interior page."""
+    any_added_story.type = StoryType.objects.get(
+      name='cover reprint (on interior page)')
+    any_added_story.save()
+    return any_added_story
+
+
 @pytest.fixture(params=['issue_add', 'variant_add'])
 def new_variant_rev(request, any_variant_adding_changeset, any_added_issue,
                     variant_add_values):
@@ -139,8 +148,8 @@ def changeset_html(changeset):
                             {'changeset': changeset, 'CTYPES': CTYPES})
 
 
-def copy_through_views(client, issue_revision, cover, **options):
-    """Press Copy Cover Sequence, confirm, and return the last response."""
+def press_copy_cover(client, issue_revision, story):
+    """Press Copy Cover Sequence and return where the story is confirmed."""
     response = client.get(
       reverse('add_story', kwargs={
         'issue_revision_id': issue_revision.id,
@@ -148,9 +157,14 @@ def copy_through_views(client, issue_revision, cover, **options):
       {'copy_cover': BUTTON, 'added_sequence_number': '0'})
     assert response.status_code == 302
     assert 'select_multiple_sequences' in response.url
-    url = reverse('confirm_copy_story', kwargs={
-      'issue_revision_id': issue_revision.id, 'story_id': cover.id,
+    return reverse('confirm_copy_story', kwargs={
+      'issue_revision_id': issue_revision.id, 'story_id': story.id,
       'sequence_number': 0})
+
+
+def copy_through_views(client, issue_revision, cover, **options):
+    """Press Copy Cover Sequence, confirm, and return the last response."""
+    url = press_copy_cover(client, issue_revision, cover)
     response = client.post(url, options)
     assert response.status_code == 200
     return client.post(
@@ -302,6 +316,43 @@ def test_copy_cover_through_the_views(indexer_client, new_variant_rev, cover,
                 character]
     assert indexer_client.get(reverse(
       'compare', kwargs={'id': changeset.id})).status_code == 200
+
+
+@pytest.mark.django_db
+def test_copy_cover_reprint_through_the_views(indexer_client,
+                                              new_variant_rev,
+                                              cover_reprint):
+    """A cover reprint is copied at once; its form saves it only as a cover."""
+    changeset = new_variant_rev.changeset
+    url = press_copy_cover(indexer_client, new_variant_rev, cover_reprint)
+
+    response = indexer_client.post(url)
+
+    assert response.status_code == 302
+    revision = changeset.storyrevisions.get()
+    assert response.url == reverse('edit_revision', kwargs={
+      'model_name': 'story', 'id': revision.id})
+    assert revision.issue is None
+    assert revision.sequence_number == 0
+    assert revision.type_id == STORY_TYPES['cover reprint (on interior page)']
+    page = indexer_client.get(response.url)
+    assert page.status_code == 200
+
+    url = reverse('process_revision', kwargs={'model_name': 'story',
+                                              'id': revision.id})
+    data = unchanged_form_data(page)
+    response = indexer_client.post(url, data)
+    assert response.status_code == 200
+    assert 'type' in response.context['form'].errors
+    revision.refresh_from_db()
+    assert revision.type_id == STORY_TYPES['cover reprint (on interior page)']
+
+    data['type'] = str(STORY_TYPES['cover'])
+    response = indexer_client.post(url, data)
+    assert response.status_code == 302
+    revision.refresh_from_db()
+    assert revision.issue is None
+    assert revision.type_id == STORY_TYPES['cover']
 
 
 @pytest.mark.django_db

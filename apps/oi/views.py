@@ -4985,7 +4985,9 @@ def _copy_refusal(issue_revision, stories=()):
     if issue_revision.variant_cover_status != VCS_Codes.ARTWORK_DIFFERENCE:
         return 'A cover sequence can only be copied into a variant if its ' \
                'cover artwork is different from the base issue.'
-    if any(story.type_id != STORY_TYPES['cover'] for story in stories):
+    cover_types = (STORY_TYPES['cover'],
+                   STORY_TYPES['cover reprint (on interior page)'])
+    if any(story.type_id not in cover_types for story in stories):
         return 'Only a cover sequence can be copied into a variant issue.'
     if len(stories) > 1 or issue_revision.active_stories():
         return 'You cannot add more than one story to a variant issue.'
