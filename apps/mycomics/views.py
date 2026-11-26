@@ -987,7 +987,7 @@ def add_series_issues_to_collection(request, series_id):
             for chunk in request.FILES['import_my_issues_to_series'].chunks():
                 os.write(tmpfile_handle, chunk)
             os.close(tmpfile_handle)
-            tmpfile = open(tmpfile_name, 'U')
+            tmpfile = open(tmpfile_name)
             issue_numbers = []
             for line in tmpfile:
                 issue_numbers.append(line.strip(' \n').lstrip('#'))
