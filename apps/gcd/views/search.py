@@ -1671,7 +1671,8 @@ def process_advanced(request, export_csv=False):
     display_target, method, logic, used_search_terms = used_search(get_copy)
     query_string = urlencode(parse_qsl(query_string))
 
-    if items.count() > 50000:
+    total_results = items.count()
+    if total_results > 50000:
         return render_error(
           request,
           'More than 50,000 results, please limit the search range. '
@@ -1701,7 +1702,7 @@ def process_advanced(request, export_csv=False):
         table = CoverIssuePublisherEditTable(
           items, template_name=TW_SORT_GRID_TEMPLATE)
         return generic_sortable_list(request, items, table, template, context,
-                                     50)
+                                     50, known_count=total_results)
 
     if target == 'sequence':
         table = StoryTable(items, template_name=TW_SORT_TABLE_TEMPLATE)
@@ -1741,7 +1742,8 @@ def process_advanced(request, export_csv=False):
           items, template_name=TW_SORT_TABLE_TEMPLATE)
         context['item_name'] = 'brand emblem'
 
-    return generic_sortable_list(request, items, table, template, context)
+    return generic_sortable_list(request, items, table, template, context,
+                                 known_count=total_results)
 
     raise ValueError
 
