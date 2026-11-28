@@ -3315,6 +3315,7 @@ def do_on_sale_weekly(request, year=None, week=None):
     vars = {
         'items': issues_on_sale,
         'heading': heading,
+        'dates': dates,
         'choose_week': True,
         'choose_url': choose_url,
         'choose_url_after': choose_url_after,
