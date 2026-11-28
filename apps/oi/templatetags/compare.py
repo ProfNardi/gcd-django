@@ -1,5 +1,4 @@
 from django import template
-from django.core.paginator import Paginator
 from diff_match_patch import diff_match_patch
 from django.conf import settings
 from django.template.defaultfilters import yesno, linebreaksbr, urlize, \
@@ -16,6 +15,7 @@ from apps.gcd.templatetags.credits import format_page_count, \
                                           split_reprint_string
 
 from apps.gcd.markdown_extension import render_markdown
+from apps.gcd.views import ResponsePaginator
 
 from apps.oi import states
 from apps.oi.models import remove_leading_article, validated_isbn, CTYPES, \
@@ -832,14 +832,16 @@ def show_credit_status(story):
 @register.simple_tag(takes_context=True)
 def sequences_page(context, revision):
     '''
-    The page of sequences of an issue revision asked for in the request.
+    The page of sequences of an issue revision asked for in the request,
+    for gcd/bits/tw_pagination_bar.html.
     Comparing several hundred sequences at once does not fit in one request.
     '''
     # a deleted sequence can keep the number of another one
     sequences = revision.ordered_story_revisions().order_by('sequence_number',
                                                             'id')
-    paginator = Paginator(sequences, COMPARE_SEQUENCES_PER_PAGE)
-    return paginator.get_page(context['request'].GET.get('page'))
+    paginator = ResponsePaginator(sequences,
+                                  per_page=COMPARE_SEQUENCES_PER_PAGE)
+    return paginator.paginate(context['request'])
 
 
 @register.filter

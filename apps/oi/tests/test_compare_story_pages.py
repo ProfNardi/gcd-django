@@ -47,10 +47,15 @@ def _compare(client, changeset, query=''):
 
 
 def _links(content, label):
-    """Return the addresses of the page links with that label."""
+    """Return the addresses of the links to that compare view."""
     return [html.unescape(link) for link in re.findall(
-      r'<a href="([^"]*)">%s\s+(?:sequences|compare view)</a>' % label,
-      content)]
+      r'<a href="([^"]*)">%s\s+compare view</a>' % label, content)]
+
+
+def _page_links(content):
+    """Return the addresses of the links of the pagination bars."""
+    return {html.unescape(link) for link in re.findall(
+      r'navigation-bar-box-link[^"]*" href="([^"]*)"', content)}
 
 
 @pytest.fixture
@@ -85,22 +90,27 @@ def test_first_page_shows_only_its_sequences(client, five_sequences):
     assert 'Title000x' in content and 'Title001x' in content
     assert 'Title002x' not in content
     assert re.search(r'Sequences 1-2\s+of 5', content)
-    assert len(_links(content, 'Next')) == 2
-    assert _links(content, 'Previous') == []
+    # the pagination bar of the site, above and below the sequences
+    assert content.count('name="page"') == 2
+    assert _page_links(content) == {'?page=2', '?page=3'}
 
 
 @pytest.mark.django_db
 def test_links_of_the_page_lead_to_the_other_pages(client, five_sequences):
     """The links as rendered move between the pages, in the same view."""
     first = _compare(client, five_sequences, '?collapse=1')
-    second = _compare(client, five_sequences, _links(first, 'Next')[0])
+    assert _page_links(first) == {'?collapse=1&page=2', '?collapse=1&page=3'}
+    # the field to go to a page keeps the view too
+    assert '<input type="hidden" name="collapse" value="1">' in first
+    second = _compare(client, five_sequences, '?collapse=1&page=2')
     assert 'Title002x' in second and 'Title003x' in second
     assert 'Title001x' not in second and 'Title004x' not in second
     assert re.search(r'Sequences 3-4\s+of 5', second)
 
-    back = _links(second, 'Previous')[0]
-    assert 'collapse=1' in back
-    assert 'Title000x' in _compare(client, five_sequences, back)
+    assert _page_links(second) == {'?collapse=1&page=1',
+                                   '?collapse=1&page=3'}
+    assert 'Title000x' in _compare(client, five_sequences,
+                                   '?collapse=1&page=1')
 
 
 @pytest.mark.django_db
@@ -108,12 +118,14 @@ def test_last_page_has_no_next_link(client, five_sequences):
     """The last page ends the links."""
     content = _compare(client, five_sequences, '?page=3')
     assert 'Title004x' in content
-    assert _links(content, 'Next') == []
+    assert _page_links(content) == {'?page=1', '?page=2'}
 
 
 @pytest.mark.django_db
 @pytest.mark.parametrize('page, shown', [('abc', 'Title000x'),
-                                         ('99', 'Title004x')])
+                                         ('99', 'Title004x'),
+                                         ('0', 'Title000x'),
+                                         ('-1', 'Title000x')])
 def test_invalid_page_shows_a_page(client, five_sequences, page, shown):
     """A page number that does not exist is not an error."""
     assert shown in _compare(client, five_sequences, '?page=%s' % page)
@@ -126,6 +138,7 @@ def test_no_links_when_all_sequences_fit(client, five_sequences):
         content = _compare(client, five_sequences)
     assert 'Title004x' in content
     assert not re.search(r'Sequences 1-', content)
+    assert 'name="page"' not in content
 
 
 @pytest.mark.django_db

@@ -7404,6 +7404,9 @@ def compare(request, id):
     for revision_after in revisions_after:
         revision_after.compare_changes()
 
+    # the links to the pages of sequences keep the other parameters
+    query = request.GET.copy()
+    query.pop('page', None)
     response = oi_render(request, template,
                          {'changeset': changeset,
                           'revision': revision,
@@ -7420,6 +7423,7 @@ def compare(request, id):
                           'moved_issues': moved_issues,
                           'source_fields': ['source_description',
                                             'source_type'],
+                          'query_string': query.urlencode(),
                           'CTYPES': CTYPES},
                          )
     response['Cache-Control'] = "no-cache, no-store, max-age=0," \
