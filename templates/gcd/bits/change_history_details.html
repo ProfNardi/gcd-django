@@ -18,7 +18,7 @@ should include a comment explaining the deletion.
 {% for changeset in changesets %}
   <tr>
     {% localize off %}
-    <td><a href="{% url "compare" id=changeset.id %}?collapse=1"> {{ changeset.modified }} </a></td>
+    <td><a href="{% if MYCOMICS %}https://www.comics.org{% endif %}{% url "compare" id=changeset.id %}?collapse=1"> {{ changeset.modified }} </a></td>
     {% endlocalize %}
     <td>{{ changeset.indexer.indexer|absolute_url }}</td>
     <td>{{ changeset.approver.indexer|absolute_url }}</td>
