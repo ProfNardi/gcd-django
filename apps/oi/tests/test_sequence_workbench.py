@@ -12,7 +12,7 @@ from django.template.loader import render_to_string
 
 from apps.gcd.models import StoryType, CreditType
 from apps.oi import states
-from apps.oi.models import CTYPES, IssueRevision, StoryRevision
+from apps.oi.models import CTYPES, StoryRevision
 from apps.oi.sequence_workbench import (
     migrate_all_credits, save_sequences, sequence_snapshot, sequence_version,
     workbench_context,
@@ -35,7 +35,9 @@ def workbench(any_edit_story_rev, any_indexer):
     changeset = story.changeset
     changeset.change_type = CTYPES['issue']
     changeset.save()
-    issue = IssueRevision.clone(story.issue, changeset=changeset)
+    # The issue revision that any_edit_story_rev puts in the change: a
+    # second clone of the issue would find no approved revision to follow.
+    issue = changeset.issuerevisions.get(issue=story.issue)
     any_indexer.user_permissions.add(
         Permission.objects.get(codename='can_reserve'))
     return changeset, issue, story, any_indexer
