@@ -123,9 +123,13 @@ class ResponsePaginator(object):
     http://bitbucket.org/miracle2k/djutils/src/tip/djutils/pagination.py.
     We could reconsider writing our own code.
     """
-    def __init__(self, queryset, vars=None, per_page=100, alpha=False):
+    def __init__(self, queryset, vars=None, per_page=100, alpha=False,
+                 *, known_count=None):
         self.vars = vars or {}
         self.p = DiggPaginator(queryset, per_page, body=7, padding=2, tail=1)
+        if known_count is not None:
+            # Reuse the exact count of this queryset when the caller has it.
+            self.p.count = known_count
         if alpha:
             alpha_paginator = AlphaPaginator(queryset, per_page=per_page)
             self.vars['alpha_paginator'] = alpha_paginator

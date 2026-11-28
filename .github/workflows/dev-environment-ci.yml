@@ -123,6 +123,14 @@ jobs:
             ./bin/dev --runtime native test apps/api_v2/tests/ -q
           fi
 
+      - name: Run Advanced Search count regression tests when available
+        run: |
+          # This module is removed if the count-reuse commit is reverted.
+          test_file=apps/gcd/tests/test_advanced_search_result_count.py
+          if [ -f "$test_file" ]; then
+            ./bin/dev --runtime native test -q "$test_file"
+          fi
+
   devcontainer-smoke:
     name: Dev Container CLI lifecycle and Linux ownership
     runs-on: ubuntu-24.04

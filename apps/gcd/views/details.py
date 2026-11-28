@@ -193,8 +193,9 @@ def get_gcd_object(model, object_id, model_name=None):
 
 
 def generic_sortable_list(request, items, table, template, context,
-                          per_page=100):
-    paginator = ResponsePaginator(items, per_page=per_page, vars=context)
+                          per_page=100, *, known_count=None):
+    paginator = ResponsePaginator(items, per_page=per_page, vars=context,
+                                  known_count=known_count)
     page_number = paginator.paginate(request).number
     request_get = request.GET.copy()
     request_get.pop('page', None)
@@ -415,7 +416,7 @@ def creator_sequences(request, creator_id, series_id=None,
         'item_name': 'sequence',
         'plural_suffix': 's',
         'heading': heading,
-        'filter_form': filter.form
+        'filter_form': filter.form if filter else None
     }
     template = 'gcd/search/tw_list_sortable.html'
     table = StoryTable(stories, attrs={'class': 'sortable_listing'},
@@ -4572,7 +4573,7 @@ def character_issues_group(request, character_id, group_id,
 
     heading = _build_universe_filter_and_heading(
       universe_id, link_universe_id, query,
-      'appearing_characters__',
+      'story__appearing_characters__',
       'for %s with %s with origin %s',
       'for %s with %s',
       (character, group))
