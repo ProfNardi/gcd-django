@@ -3241,7 +3241,7 @@ def daily_changes(request, show_date=None, user=False):
           kwargs={'show_date': date_before}),
         'choose_url_after': choose_url_after,
         'other_url': urlresolvers.reverse(
-          '%schanges_by_date' % ('my_' if user is False else ''),
+          '%schanges_by_date' % ('my_' if user is None else ''),
           kwargs={'show_date': requested_date}),
         'creators': creators,
         'publisher_table': publisher_table,
