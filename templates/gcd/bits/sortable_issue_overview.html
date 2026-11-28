@@ -1,5 +1,6 @@
 {% load credits %}
 {% load display %}
+{% load i18n %}
 {% load mathfilter %}
 {% load static %}
 <div>
@@ -15,9 +16,11 @@
 </div>
 {{ record.price|default:"?" }} /
 {{ record|show_page_count|default:"?" }}
-{% with record.page_count|default:0|ceil|pluralize as suffix %}
-page{{ suffix }}
-{% endwith %}
+{% blocktrans trimmed count counter=record.page_count|default:0|ceil %}
+  page
+{% plural %}
+  pages
+{% endblocktrans %}
 {% with story=record.get_cover_sequence modal=True is_cover=True %}
   {% include "gcd/bits/single_story_credits.html" %}
 {% endwith %}
