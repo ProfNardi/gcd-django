@@ -1535,3 +1535,16 @@ def delete_location(request, location_id):
 @login_required
 def delete_purchase_location(request, location_id):
     return _delete_location(request, PurchaseLocation, location_id)
+
+
+def page_on_my_comics(request, **kwargs):
+    """
+    Sends the visitor to the same address on my.comics.org.
+
+    The url patterns of www.comics.org name some pages of my.comics.org,
+    with the paths they have there, for the links of www.comics.org. Their
+    templates use url names that only my.comics.org has, so www.comics.org
+    cannot show them.
+    """
+    return HttpResponseRedirect('https://my.comics.org' +
+                                request.get_full_path())
