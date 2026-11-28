@@ -3731,7 +3731,7 @@ def add_group_relation(request, group_id):
                        'group_relation',
                        initial=initial,
                        object_url=object_url,
-                       object_name='Relation with Character',
+                       object_name='Relation with Group',
                        cancel=cancel)
 
 
