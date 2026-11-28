@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('gcd', '0075_merge_feature_names_api_v2'),
+        ('gcd', '0076_story_issue_longest_index'),
     ]
 
     operations = [
