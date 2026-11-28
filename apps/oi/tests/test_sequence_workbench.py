@@ -82,8 +82,8 @@ def test_bulk_migration_only_active_legacy_credits(workbench):
         'changeset': changeset, 'user': user, 'CTYPES': CTYPES,
         **workbench_context(changeset),
     })
-    assert html.count('>Migrate credits</span>') == 1
-    assert 'Migrate all credits <span data-migration-count>' in html
+    assert html.count('>Migrate Credits</span>') == 1
+    assert 'Migrate All Credits <span data-migration-count>' in html
 
 
 def test_inline_migration_returns_rows_and_checks_version(workbench):
