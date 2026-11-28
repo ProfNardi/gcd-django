@@ -416,7 +416,7 @@ def creator_sequences(request, creator_id, series_id=None,
         'item_name': 'sequence',
         'plural_suffix': 's',
         'heading': heading,
-        'filter_form': filter.form
+        'filter_form': filter.form if filter else None
     }
     template = 'gcd/search/tw_list_sortable.html'
     table = StoryTable(stories, attrs={'class': 'sortable_listing'},
