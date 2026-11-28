@@ -10,6 +10,7 @@ requests, responses and errors.
 from datetime import datetime
 
 from django.conf import settings
+from django.core.cache import cache
 from django.shortcuts import render
 from django.db.models import Count, Q
 
@@ -56,10 +57,15 @@ def index(request):
         template_vars[template] = '%s/%s.html' % (base_path, template)
 
     creators = []
-    end_listed = 0
     # The timeline is only rendered when USE_TEMPLATESADMIN is enabled.
+    # Its list changes with the date: it is kept in the cache under the
+    # date, and the cache gives None when the list of the day is missing.
+    # The timeout of an hour lets edits of the creators show up.
+    today = datetime.today()
+    cache_key = 'front_page_creators_%s' % today.strftime('%Y-%m-%d')
     if settings.USE_TEMPLATESADMIN:
-        today = datetime.today()
+        creators = cache.get(cache_key)
+    if creators is None:
         day = '%0.2d' % (today).day
         month = '%0.2d' % (today).month
         creators = Creator.objects.filter(birth_date__day__lte=day,
@@ -99,12 +105,14 @@ def index(request):
                 creators[i].birth_date.day != creator_last.birth_date.day:
                     end_listed = i
                     break
+        creators = creators[:end_listed]
+        cache.set(cache_key, creators, 3600)
 
     template_vars.update({
         'stats': stats,
         'language': language,
         'stats_for_language': stats_for_language,
-        'creators': creators[:end_listed],
+        'creators': creators,
     })
     return render(request, 'gcd/tw_index.html', template_vars)
 
@@ -115,9 +123,13 @@ class ResponsePaginator(object):
     http://bitbucket.org/miracle2k/djutils/src/tip/djutils/pagination.py.
     We could reconsider writing our own code.
     """
-    def __init__(self, queryset, vars=None, per_page=100, alpha=False):
+    def __init__(self, queryset, vars=None, per_page=100, alpha=False,
+                 *, known_count=None):
         self.vars = vars or {}
         self.p = DiggPaginator(queryset, per_page, body=7, padding=2, tail=1)
+        if known_count is not None:
+            # Reuse the exact count of this queryset when the caller has it.
+            self.p.count = known_count
         if alpha:
             alpha_paginator = AlphaPaginator(queryset, per_page=per_page)
             self.vars['alpha_paginator'] = alpha_paginator

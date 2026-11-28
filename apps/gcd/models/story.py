@@ -931,6 +931,23 @@ class Story(GcdData):
     class Meta:
         app_label = 'gcd'
         ordering = ['sequence_number']
+        indexes = [
+            models.Index(
+                fields=['deleted', 'issue', 'sequence_number', 'id'],
+                name='gcd_story_v2_browse_idx',
+            ),
+            models.Index(
+                fields=['deleted', 'modified', 'id'],
+                name='gcd_story_v2_modified_idx',
+            ),
+            # Serves the longest_story_id subqueries (filter on issue,
+            # deleted and type, ORDER BY page_count DESC LIMIT 1), so MySQL
+            # does not fall back to a backward scan of the page_count index.
+            models.Index(
+                fields=['issue', 'deleted', 'type', 'page_count'],
+                name='gcd_story_issue_longest_idx',
+            ),
+        ]
 
     # Core story fields.
     title = models.CharField(max_length=255)
