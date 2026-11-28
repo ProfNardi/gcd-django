@@ -113,3 +113,30 @@ def test_link_of_www_opens_the_page_on_my_comics(client, lists, page):
 
     assert response.status_code == 200
     assert response.resolver_match.url_name == page
+
+
+@pytest.mark.parametrize('username', ['owner', 'visitor', None],
+                         ids=['owner', 'other collector', 'anonymous'])
+def test_old_reading_list_address_opens_on_my_comics(client, lists,
+                                                     username):
+    """
+    The address www.comics.org gave a reading list before goes to its page
+    on my.comics.org, which shows a public list to every visitor.
+    """
+    if username:
+        client.force_login(User.objects.get(username=username))
+    reading_order_id = lists['reading_order'].id
+
+    response = client.get('/reading_order/%d/?page=2' % reading_order_id)
+
+    assert response.status_code == 302
+    path = '/reading_list/%d/?page=2' % reading_order_id
+    assert response['Location'] == 'https://my.comics.org' + path
+    try:
+        with override_settings(MYCOMICS=True):
+            _reload_urls()
+            response = client.get(path)
+    finally:
+        _reload_urls()
+    assert response.status_code == 200
+    assert response.resolver_match.url_name == 'view_reading_order'

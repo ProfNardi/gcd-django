@@ -147,6 +147,10 @@ else:
         path('reading_list/<int:reading_order_id>/',
             mycomics_views.page_on_my_comics,
             name='view_reading_order'),
+        re_path(r'^reading_order/(?P<reading_order_id>\d+)/',
+            bv.RedirectView.as_view(
+              url='https://my.comics.org/reading_list/%(reading_order_id)s/',
+              query_string=True)),
         path('issue/<int:issue_id>/add_to_reading_order/',
             mycomics_views.add_single_issue_to_reading_order, name='add_to_reading_order'),
         path('reading_list_item/<int:item_id>/reading_list/'
