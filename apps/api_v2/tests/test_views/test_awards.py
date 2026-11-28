@@ -351,6 +351,32 @@ def test_award_recipients_ignore_the_award_list_filters(api_client, query):
     assert response.data['results'][0]['id'] == recipient.pk
 
 
+def test_award_recipients_modified_filter_narrows_the_recipients(
+    api_client,
+):
+    """A modified cutoff keeps the newer recipient and hides the older."""
+    old = datetime(2020, 1, 1, tzinfo=UTC)
+    award = Award.objects.create(name='Test Award', notes='')
+    Award.objects.filter(pk=award.pk).update(modified=old)
+    older = _create_received_award(
+        award=award,
+        recipient=_create_creator('Older Creator'),
+    )
+    ReceivedAward.objects.filter(pk=older.pk).update(modified=old)
+    newer = _create_received_award(
+        award=award,
+        recipient=_create_creator('Newer Creator'),
+    )
+
+    response = api_client.get(
+        reverse('api-v2-award-recipients', kwargs={'pk': award.pk}),
+        {'modified__gt': '2021-01-01T00:00:00Z'},
+    )
+
+    assert response.status_code == 200
+    assert [row['id'] for row in response.data['results']] == [newer.pk]
+
+
 @pytest.mark.parametrize('pk_offset', [0, 1])
 def test_award_recipients_of_a_hidden_award_are_not_found(
     api_client,
