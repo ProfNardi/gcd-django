@@ -1,13 +1,10 @@
 # -*- coding: utf-8 -*-
 
 
-import logging
-
 from apps.indexer.views import render_error, ViewTerminationError
 from django.db import OperationalError
 from django.utils.deprecation import MiddlewareMixin
-
-logger = logging.getLogger(__name__)
+from django.utils.log import log_response
 
 # MySQL gave up on a lock wait, or broke a deadlock.
 LOCK_CONFLICTS = (1205, 1213)
@@ -25,8 +22,6 @@ class ErrorHandlingMiddleware(MiddlewareMixin):
 
         if isinstance(exception, OperationalError) and \
            exception.args[:1] and exception.args[0] in LOCK_CONFLICTS:
-            logger.warning('Lock conflict on %s', request.path,
-                           exc_info=exception)
             response = render_error(
               request, 'An error occurred when processing the request. '
                        'Please check and try again.',
@@ -34,6 +29,11 @@ class ErrorHandlingMiddleware(MiddlewareMixin):
             # A failed request for the log and for a script, as the server
             # error was; 503 tells that it can be sent again.
             response.status_code = 503
+            # Django's one record of the failed request, with the error and
+            # its traceback, as the server error had them.
+            log_response('%s: %s', response.reason_phrase, request.path,
+                         response=response, request=request,
+                         exception=exception)
             return response
 
         return None
