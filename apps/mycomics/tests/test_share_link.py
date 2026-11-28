@@ -181,6 +181,7 @@ def test_the_deleted_issues_notice_keeps_the_key(client, data):
                        page, re.S).group(1)
     assert 'href="%s"' % _item_url(first, want, key) in notice
 
+
 @pytest.mark.parametrize('key', [
   'wrong', '', chr(233), 'withdrawn', 'of the have collection',
   'of the other collector'])
